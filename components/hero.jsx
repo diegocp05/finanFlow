@@ -1,9 +1,20 @@
+"use client";
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowRight, BarChart2, CreditCard, PieChart, Shield, TrendingUp } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 
 const HeroSection = () => {
+  const { isSignedIn } = useUser();
+
+  const handleButtonClick = (targetPath) => {
+    if (!isSignedIn) {
+      return '/sign-in';
+    }
+    return targetPath;
+  };
+
   return (
     <div className="container mx-auto px-4">
       <div className="flex flex-col lg:flex-row items-center gap-12">
@@ -26,16 +37,16 @@ const HeroSection = () => {
           </p>
           
           <div className="flex flex-wrap gap-4 pt-4">
-            <Link href="/dashboard">
+            <Link href={handleButtonClick('/dashboard')}>
               <Button className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-6 py-6 rounded-lg text-lg shadow-lg transition-all duration-300 hover:shadow-xl">
-                Começar Agora
+                {isSignedIn ? 'Começar Agora' : 'Fazer Login'}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             
-            <Link href="/simulator">
+            <Link href={handleButtonClick('/simulator')}>
               <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50 px-6 py-6 rounded-lg text-lg transition-all duration-300">
-                Simular Cenários
+                {isSignedIn ? 'Simular Cenários' : 'Entrar para Simular'}
                 <TrendingUp className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -164,11 +175,11 @@ const HeroSection = () => {
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-12 rounded-2xl shadow-xl text-white">
           <h2 className="text-3xl font-bold mb-4">Pronto para transformar suas finanças?</h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Junte-se a milhares de empresas que já otimizaram seu gerenciamento financeiro com o FinanFlow.
+           Um sistema USIFRESA.
           </p>
-          <Link href="/dashboard">
+          <Link href={handleButtonClick('/dashboard')}>
             <Button className="bg-white text-blue-700 hover:bg-blue-50 px-8 py-6 rounded-lg text-lg font-medium shadow-lg transition-all duration-300">
-              Começar 
+              {isSignedIn ? 'Começar' : 'Fazer Login'}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>

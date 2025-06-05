@@ -5,7 +5,7 @@ import { addDays, addMonths, format } from "date-fns";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-const ACCOUNT_ID = "643150a6-5aa8-43d0-bd9b-03907e78b950";
+const ACCOUNT_ID = "5a4988d6-8b6e-4f61-9a9c-3600f722fde2";
 const USER_ID = "adb65981-f8af-4a09-8663-4f6d245415c9";
 
 // Categorias específicas para a Usifresa
@@ -29,6 +29,9 @@ const CATEGORIES = {
     { name: "viagens-negocios", range: [2000, 10000] },
     { name: "manutencao-fabrica", range: [1000, 7000] },
   ],
+  TRANSFER: [
+    { name: "transferencia", range: [5000, 50000] },
+  ]
 };
 
 // Clientes e fornecedores específicos para a Usifresa
@@ -71,6 +74,16 @@ const CORPORATE_NAMES = {
     "Segurança do Trabalho EPI",
     "Serviços Contábeis Associados",
     "Energia Elétrica Paulista"
+  ],
+  TRANSFER: [
+    "Banco do Brasil",
+    "Itaú Unibanco",
+    "Bradesco",
+    "Santander",
+    "Caixa Econômica Federal",
+    "Nubank",
+    "Inter",
+    "Sicoob"
   ]
 };
 
@@ -87,7 +100,10 @@ const DOCUMENT_TYPES = [
   "Proposta Técnica 98123",
   "Contrato de Manutenção 45612",
   "Relatório Técnico 78901",
-  "Guia de Remessa 34567"
+  "Guia de Remessa 34567",
+  "TED 11223",
+  "DOC 44556",
+  "PIX 77889"
 ];
 
 // Descrições para transações específicas da Usifresa
@@ -118,6 +134,16 @@ const DESCRIPTIONS = {
     "Viagem para feira do setor",
     "Compra de material de escritório",
     "Pagamento de consultoria jurídica"
+  ],
+  TRANSFER: [
+    "Transferência para conta poupança",
+    "Transferência para conta corrente",
+    "Aplicação em CDB",
+    "Resgate de investimento",
+    "Transferência entre contas",
+    "Depósito em conta investimento",
+    "Movimentação de capital de giro",
+    "Transferência para reserva de emergência"
   ]
 };
 
@@ -221,301 +247,6 @@ function chunkArray(array, chunkSize) {
   return chunks;
 }
 
-// Função para gerar transações sazonais para a Usifresa
-function generateSeasonalTransactions(month, year) {
-  const seasonalEvents = [];
-  
-  // Feiras e eventos do setor
-  if (month === 3) { // Abril (0-indexed)
-    seasonalEvents.push({
-      type: "EXPENSE",
-      description: "Participação na Feira Internacional de Papel",
-      amount: getRandomAmount(15000, 30000),
-      category: "marketing"
-    });
-  }
-  
-  if (month === 8) { // Setembro
-    seasonalEvents.push({
-      type: "EXPENSE",
-      description: "Participação na ExpoTissue Brasil",
-      amount: getRandomAmount(20000, 40000),
-      category: "marketing"
-    });
-  }
-  
-  // Pagamento de impostos trimestrais
-  if (month === 2 || month === 5 || month === 8 || month === 11) { // Março, Junho, Setembro, Dezembro
-    seasonalEvents.push({
-      type: "EXPENSE",
-      description: "Pagamento de impostos trimestrais",
-      amount: getRandomAmount(30000, 50000),
-      category: "impostos"
-    });
-  }
-  
-  // Bônus de final de ano
-  if (month === 11) { // Dezembro
-    seasonalEvents.push({
-      type: "EXPENSE",
-      description: "Pagamento de 13º salário",
-      amount: getRandomAmount(20000, 40000),
-      category: "folha-pagamento"
-    });
-    
-    seasonalEvents.push({
-      type: "EXPENSE",
-      description: "Bônus anual para funcionários",
-      amount: getRandomAmount(10000, 20000),
-      category: "folha-pagamento"
-    });
-  }
-  
-  // Aumento de vendas em períodos específicos
-  if (month === 0 || month === 1) { // Janeiro, Fevereiro
-    seasonalEvents.push({
-      type: "INCOME",
-      description: "Venda de máquina para produção sazonal",
-      amount: getRandomAmount(100000, 200000),
-      category: "vendas-maquinas"
-    });
-  }
-  
-  return seasonalEvents;
-}
-
-export async function seedTransactionsFullYear(targetAccountId = null) {
-  try {
-    // Obter o usuário autenticado
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
-    
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-    
-    if (!user) {
-      throw new Error("User not found");
-    }
-    
-    // Se um ID de conta específico foi fornecido, use-o
-    let account;
-    if (targetAccountId) {
-      account = await db.account.findUnique({
-        where: { 
-          id: targetAccountId,
-          userId: user.id // Garantir que a conta pertence ao usuário
-        },
-      });
-      
-      if (!account) {
-        throw new Error("Account not found or does not belong to you");
-      }
-    } else {
-      // Caso contrário, use a conta padrão
-      account = await db.account.findFirst({
-        where: { userId: user.id, isDefault: true },
-      });
-      
-      if (!account) {
-        throw new Error("Default account not found. Please create an account first.");
-      }
-    }
-    
-    const accountId = account.id;
-    
-    // Gerar transações para o ano inteiro de 2024
-    const transactions = [];
-    let totalBalance = parseFloat(account.balance);
-
-    // Criar transações para cada mês do ano
-    for (let month = 0; month < 12; month++) {
-      // Determinar o número de dias no mês
-      const daysInMonth = new Date(2024, month + 1, 0).getDate();
-      
-      // Gerar transações sazonais específicas para o mês
-      const seasonalTransactions = generateSeasonalTransactions(month, 2024);
-      
-      for (const seasonalTx of seasonalTransactions) {
-        // Escolher um dia aleatório no mês para a transação sazonal
-        const day = Math.floor(Math.random() * daysInMonth) + 1;
-        const date = new Date(2024, month, day);
-        
-        // Adicionar hora aleatória
-        const hours = Math.floor(Math.random() * 9) + 8; // Entre 8h e 17h
-        const minutes = Math.floor(Math.random() * 60);
-        date.setHours(hours, minutes);
-        
-        const corporateName = getRandomCorporateName(seasonalTx.type);
-        const recurring = false; // Eventos sazonais geralmente não são recorrentes
-        
-        const transaction = {
-          type: seasonalTx.type,
-          amount: seasonalTx.amount,
-          description: seasonalTx.description,
-          corporateName,
-          documento: getRandomDocument(),
-          date,
-          category: seasonalTx.category,
-          isRecurring: recurring,
-          recurringInterval: null,
-          nextRecurringDate: null,
-          status: "COMPLETED",
-          userId: user.id,
-          accountId,
-        };
-        
-        totalBalance += seasonalTx.type === "INCOME" ? seasonalTx.amount : -seasonalTx.amount;
-        transactions.push(transaction);
-      }
-      
-      // Gerar transações regulares para cada dia do mês
-      for (let day = 1; day <= daysInMonth; day++) {
-        // Criar data para o mês atual de 2024
-        const date = new Date(2024, month, day);
-        
-        // Gerar 1-3 transações por dia
-        const transactionsPerDay = Math.floor(Math.random() * 3) + 1;
-        
-        for (let j = 0; j < transactionsPerDay; j++) {
-          // Adicionar hora aleatória para mais realismo
-          const hours = Math.floor(Math.random() * 9) + 8; // Entre 8h e 17h (horário comercial)
-          const minutes = Math.floor(Math.random() * 60);
-          date.setHours(hours, minutes);
-          
-          // 40% chance de receita, 60% chance de despesa
-          const type = Math.random() < 0.4 ? "INCOME" : "EXPENSE";
-          const { category, amount } = getRandomCategory(type);
-          const recurring = isRecurring();
-          const recurringInterval = recurring ? getRandomRecurringInterval() : null;
-          const nextRecurringDate = recurring ? calculateNextRecurringDate(date, recurringInterval) : null;
-          
-          // Descrição mais variada
-          const baseDescription = getRandomDescription(type);
-          const corporateName = getRandomCorporateName(type);
-          
-          const transaction = {
-            type,
-            amount,
-            description: `${baseDescription} - ${corporateName}`,
-            corporateName,
-            documento: getRandomDocument(),
-            date,
-            category,
-            isRecurring: recurring,
-            recurringInterval,
-            nextRecurringDate,
-            status: "COMPLETED",
-            userId: user.id,
-            accountId,
-          };
-
-          totalBalance += type === "INCOME" ? amount : -amount;
-          transactions.push(transaction);
-        }
-      }
-    }
-
-  // Adicionar transações recorrentes fixas (mensais)
-  const recurringTransactions = [
-    {
-      type: "EXPENSE",
-      description: "Aluguel do galpão industrial",
-      amount: 15000,
-      category: "utilidades",
-      isRecurring: true,
-      recurringInterval: "MONTHLY",
-      corporateName: "Imobiliária Industrial SP"
-    },
-    {
-      type: "EXPENSE",
-      description: "Folha de pagamento",
-      amount: 35000,
-      category: "folha-pagamento",
-      isRecurring: true,
-      recurringInterval: "MONTHLY",
-      corporateName: "Usifresa Ltda"
-    },
-    {
-      type: "EXPENSE",
-      description: "Plano de saúde dos funcionários",
-      amount: 8500,
-      category: "folha-pagamento",
-      isRecurring: true,
-      recurringInterval: "MONTHLY",
-      corporateName: "Unimed São Paulo"
-    },
-    {
-      type: "EXPENSE",
-      description: "Serviço de contabilidade",
-      amount: 3200,
-      category: "utilidades",
-      isRecurring: true,
-      recurringInterval: "MONTHLY",
-      corporateName: "Contábil Serrana"
-    }
-  ];
-
-  // Adicionar as transações recorrentes para cada mês
-  for (let month = 0; month < 12; month++) {
-    for (const recTx of recurringTransactions) {
-      // Definir a data para o dia 5 de cada mês (ou outro dia fixo)
-      const date = new Date(2024, month, 5);
-      date.setHours(10, 0); // 10:00 AM
-      
-      const nextRecurringDate = calculateNextRecurringDate(date, recTx.recurringInterval);
-      
-      const transaction = {
-        ...recTx,
-        date,
-        nextRecurringDate,
-        documento: getRandomDocument(),
-        status: "COMPLETED",
-        userId: user.id,
-        accountId,
-      };
-      
-      totalBalance += recTx.type === "INCOME" ? recTx.amount : -recTx.amount;
-      transactions.push(transaction);
-    }
-  }
-
-  // Limpar transações existentes
-  await db.transaction.deleteMany({
-    where: { accountId },
-  });
-
-  // Dividir transações em lotes de 50 para evitar timeout
-  const batches = chunkArray(transactions, 50);
-  
-  // Processar cada lote separadamente
-  for (const batch of batches) {
-    await db.transaction.createMany({
-      data: batch,
-    });
-  }
-
-  // Atualizar o saldo da conta
-  await db.account.update({
-    where: { id: accountId },
-    data: { balance: totalBalance },
-  });
-
-  revalidatePath("/dashboard");
-  revalidatePath(`/account/${accountId}`);
-
-  return {
-    success: true,
-    message: `Criadas ${transactions.length} transações para o ano de 2024 para a Usifresa`,
-    totalBalance,
-  };
-} catch (error) {
-  console.error("Error seeding transactions:", error);
-  return { success: false, error: error.message };
-}
-}
-
-// Função original mantida para compatibilidade
 export async function seedTransactions(targetAccountId = null) {
   try {
     // Obter o usuário autenticado
@@ -556,29 +287,20 @@ export async function seedTransactions(targetAccountId = null) {
     
     const accountId = account.id;
     
-
-    // Gerar transações para maio de 2025
+    // Gerar transações para junho de 2025 (dias 1 a 5)
     const transactions = [];
     let totalBalance = parseFloat(account.balance);
     let totalIncome = 0;
     let totalExpense = 0;
+    let totalTransfers = 0;
 
-
-
-    // Determinar o número de dias em maio de 2025 (31 dias)
-    const daysInMay = 31;
-
-
-
-
-
-    // Criar datas para maio de 2025 (1 a 31)
-    for (let day = 1; day <= daysInMay; day++) {      
-      // Criar data para maio de 2025
-      const date = new Date(2025, 4, day); // Maio é mês 4 em JavaScript (0-indexed)
+    // Criar transações para os primeiros 5 dias de junho de 2025
+    for (let day = 1; day <= 5; day++) {      
+      // Criar data para junho de 2025
+      const date = new Date(2025, 5, day); // Junho é mês 5 em JavaScript (0-indexed)
       
-      // Gerar 1-4 transações por dia
-      const transactionsPerDay = Math.floor(Math.random() * 4) + 1;
+      // Gerar 2-4 transações por dia
+      const transactionsPerDay = Math.floor(Math.random() * 3) + 2;
 
       for (let j = 0; j < transactionsPerDay; j++) {
         // Adicionar hora aleatória para mais realismo
@@ -586,10 +308,19 @@ export async function seedTransactions(targetAccountId = null) {
         const minutes = Math.floor(Math.random() * 60);
         date.setHours(hours, minutes);
         
-        // 40% chance de receita, 60% chance de despesa para garantir um equilíbrio razoável
-        const type = Math.random() < 0.4 ? "INCOME" : "EXPENSE";
+        // 30% chance de receita, 50% chance de despesa, 20% chance de transferência
+        const random = Math.random();
+        let type;
+        if (random < 0.3) {
+          type = "INCOME";
+        } else if (random < 0.8) {
+          type = "EXPENSE";
+        } else {
+          type = "TRANSFER";
+        }
+        
         const { category, amount } = getRandomCategory(type);
-        const recurring = isRecurring();
+        const recurring = type !== "TRANSFER" ? isRecurring() : false; // Transferências geralmente não são recorrentes
         const recurringInterval = recurring ? getRandomRecurringInterval() : null;
         const nextRecurringDate = recurring ? calculateNextRecurringDate(date, recurringInterval) : null;
         
@@ -617,43 +348,65 @@ export async function seedTransactions(targetAccountId = null) {
         if (type === "INCOME") {
           totalIncome += amount;
           totalBalance += amount;
-        } else {
+        } else if (type === "EXPENSE") {
           totalExpense += amount;
           totalBalance -= amount;
+        } else if (type === "TRANSFER") {
+          totalTransfers += amount;
+          // Para transferências, não alteramos o saldo total pois é movimentação interna
         }
         
         transactions.push(transaction);
       }
     }
 
+    // Adicionar algumas transferências específicas para os primeiros dias
+    const specificTransfers = [
+      {
+        day: 1,
+        description: "Transferência para conta poupança - reserva mensal",
+        amount: 25000,
+        corporateName: "Banco do Brasil"
+      },
+      {
+        day: 2,
+        description: "Aplicação em CDB - investimento de curto prazo",
+        amount: 15000,
+        corporateName: "Itaú Unibanco"
+      },
+      {
+        day: 3,
+        description: "Transferência PIX para fornecedor",
+        amount: 8500,
+        corporateName: "Bradesco"
+      },
+      {
+        day: 4,
+        description: "Resgate de investimento - capital de giro",
+        amount: 30000,
+        corporateName: "Santander"
+      },
+      {
+        day: 5,
+        description: "Transferência entre contas - movimentação interna",
+        amount: 12000,
+        corporateName: "Nubank"
+      }
+    ];
 
-
-    // Adicionar transações sazonais específicas para maio
-    const seasonalTransactions = generateSeasonalTransactions(4, 2025); // 4 = maio, 2025 = ano
-    
-    for (const seasonalTx of seasonalTransactions) {
-
-
-
-      // Escolher um dia aleatório em maio para a transação sazonal
-      const day = Math.floor(Math.random() * daysInMay) + 1;
-      const date = new Date(2025, 4, day);
-      
-      // Adicionar hora aleatória
-      const hours = Math.floor(Math.random() * 9) + 8; // Entre 8h e 17h
-      const minutes = Math.floor(Math.random() * 60);
-      date.setHours(hours, minutes);
-      
-      const corporateName = getRandomCorporateName(seasonalTx.type);
+    // Adicionar as transferências específicas
+    for (const transfer of specificTransfers) {
+      const date = new Date(2025, 5, transfer.day); // Junho de 2025
+      date.setHours(14, 30); // 14:30
       
       const transaction = {
-        type: seasonalTx.type,
-        amount: seasonalTx.amount,
-        description: seasonalTx.description,
-        corporateName,
+        type: "TRANSFER",
+        amount: transfer.amount,
+        description: transfer.description,
+        corporateName: transfer.corporateName,
         documento: getRandomDocument(),
         date,
-        category: seasonalTx.category,
+        category: "transferencia",
         isRecurring: false,
         recurringInterval: null,
         nextRecurringDate: null,
@@ -662,20 +415,11 @@ export async function seedTransactions(targetAccountId = null) {
         accountId,
       };
       
-      // Atualizar totais
-      if (seasonalTx.type === "INCOME") {
-        totalIncome += seasonalTx.amount;
-        totalBalance += seasonalTx.amount;
-      } else {
-        totalExpense += seasonalTx.amount;
-        totalBalance -= seasonalTx.amount;
-      }
-      
+      totalTransfers += transfer.amount;
       transactions.push(transaction);
     }
 
-
-    // Adicionar transações recorrentes fixas para maio
+    // Adicionar transações recorrentes fixas para junho
     const recurringTransactions = [
       {
         type: "EXPENSE",
@@ -715,13 +459,9 @@ export async function seedTransactions(targetAccountId = null) {
       }
     ];
 
-
-    // Adicionar as transações recorrentes para maio
+    // Adicionar as transações recorrentes para junho (apenas no dia 5)
     for (const recTx of recurringTransactions) {
-
-
-      // Definir a data para o dia 5 de maio de 2025
-      const date = new Date(2025, 4, 5);
+      const date = new Date(2025, 5, 5); // 5 de junho de 2025
       date.setHours(10, 0); // 10:00 AM
       
       const nextRecurringDate = calculateNextRecurringDate(date, recTx.recurringInterval);
@@ -736,29 +476,21 @@ export async function seedTransactions(targetAccountId = null) {
         accountId,
       };
       
-      // Atualizar totais
-      if (recTx.type === "INCOME") {
-        totalIncome += recTx.amount;
-        totalBalance += recTx.amount;
-      } else {
-        totalExpense += recTx.amount;
-        totalBalance -= recTx.amount;
-      }
-      
+      totalExpense += recTx.amount;
+      totalBalance -= recTx.amount;
       transactions.push(transaction);
     }
 
-    // Adicionar uma grande venda para garantir lucro no mês
-
-    const bigSaleDate = new Date(2025, 4, 15); // 15 de maio de 2025
+    // Adicionar uma grande venda no dia 3 para garantir fluxo positivo
+    const bigSaleDate = new Date(2025, 5, 3); // 3 de junho de 2025
     bigSaleDate.setHours(11, 30);
     
-    const bigSaleAmount = totalExpense * 1.2; // 20% acima das despesas totais para garantir lucro
+    const bigSaleAmount = 180000; // Valor fixo para uma grande venda
     
     const bigSaleTransaction = {
       type: "INCOME",
       amount: bigSaleAmount,
-      description: "Venda de máquina de papel toalha interfolhado - Projeto Especial",
+      description: "Venda de máquina de papel toalha interfolhado - Projeto Especial Junho",
       corporateName: "Kimberly-Clark Brasil",
       documento: "NF-e 78945",
       date: bigSaleDate,
@@ -778,7 +510,7 @@ export async function seedTransactions(targetAccountId = null) {
       where: { accountId },
     });
 
-    // Dividir transações em lotes de 50 para evitar timeout
+    // Dividir transações em lotes de 20 para evitar timeout
     const batches = chunkArray(transactions, 20);
     
     // Processar cada lote separadamente
@@ -799,13 +531,27 @@ export async function seedTransactions(targetAccountId = null) {
 
     return {
       success: true,
-
-      message: `Criadas ${transactions.length} transações para maio de 2025 na conta ${account.name}`,
+      message: `Criadas ${transactions.length} transações para os primeiros 5 dias de junho de 2025 na conta ${account.name}`,
       totalBalance,
+      totalIncome,
+      totalExpense,
+      totalTransfers,
       profit: totalIncome - totalExpense,
+      details: {
+        regularTransactions: transactions.length - specificTransfers.length - recurringTransactions.length - 1,
+        specificTransfers: specificTransfers.length,
+        recurringTransactions: recurringTransactions.length,
+        bigSale: 1
+      }
     };
   } catch (error) {
     console.error("Error seeding transactions:", error);
     return { success: false, error: error.message };
   }
+}
+
+// Função para seed completo do ano (mantida para compatibilidade, mas simplificada)
+export async function seedTransactionsFullYear(targetAccountId = null) {
+  // Redireciona para a função principal que agora foca em junho
+  return await seedTransactions(targetAccountId);
 }

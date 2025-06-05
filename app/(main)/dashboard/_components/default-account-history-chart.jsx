@@ -145,17 +145,17 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
   
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-normal">
             Histórico de Todas as Contas
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mt-1">
             Evolução do saldo, receitas e despesas ao longo do tempo
           </p>
         </div>
         <Select defaultValue={timePeriod} onValueChange={setTimePeriod}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px] border-blue-200 focus:ring-blue-500">
             <SelectValue placeholder="Selecionar período" />
           </SelectTrigger>
           <SelectContent>
@@ -168,21 +168,35 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
         </Select>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[250px] sm:h-[300px] lg:h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
-              margin={{ top: 10, right: 30, left: 50, bottom: 0 }}
+              margin={{ 
+                top: 10, 
+                right: 10, 
+                left: 0, 
+                bottom: 0 
+              }}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis 
+                dataKey="name" 
+                fontSize={10}
+                interval="preserveStartEnd"
+                tick={{ fontSize: 10 }}
+              />
               <YAxis 
-                tickFormatter={(value) => `R$${value.toLocaleString('pt-BR', { 
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0 
-                })}`}
+                tickFormatter={(value) => {
+                  if (value >= 1000) {
+                    return `R$${(value / 1000).toFixed(0)}k`;
+                  }
+                  return `R$${value.toFixed(0)}`;
+                }}
+                fontSize={10}
                 tickLine={false}
                 axisLine={false}
+                width={50}
               />
               <Tooltip 
                 formatter={(value, name) => {
@@ -199,6 +213,7 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
                   return [`R$ ${value.toFixed(2)}`, name];
                 }}
                 labelFormatter={(label) => `Período: ${label}`}
+                contentStyle={{ fontSize: '12px' }}
               />
               <Legend 
                 formatter={(value) => {
@@ -208,6 +223,7 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
                   if (value === "totalExpense") return "Despesa Total";
                   return value;
                 }}
+                wrapperStyle={{ fontSize: '12px' }}
               />
               
               {/* Área para o saldo total */}
@@ -247,14 +263,14 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <span className="font-medium">Saldo Total Atual:</span>
               <span className="font-bold">R${parseFloat(currentTotalBalance).toFixed(2)}</span>
             </div>
             {chartData.length > 0 && (
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                 <span className="font-medium">Variação ({TIME_PERIODS[timePeriod].label}):</span>
                 <span className={`font-bold ${
                   currentTotalBalance - chartData[0].totalBalance >= 0 
@@ -268,11 +284,11 @@ const DefaultAccountHistoryChart = ({ accounts, transactions }) => {
             )}
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <span className="font-medium">Receita Total ({TIME_PERIODS[timePeriod].label}):</span>
               <span className="font-bold text-green-500">R${periodTotals.income.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
               <span className="font-medium">Despesa Total ({TIME_PERIODS[timePeriod].label}):</span>
               <span className="font-bold text-red-500">R${periodTotals.expense.toFixed(2)}</span>
             </div>
